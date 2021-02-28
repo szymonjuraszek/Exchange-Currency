@@ -2,16 +2,14 @@ package com.szymon.controller;
 
 import com.szymon.cache.LogCacheManager;
 import com.szymon.entity.Log;
-import com.szymon.model.Money;
+import com.szymon.model.Exchange;
 import com.szymon.model.Rate;
+import com.szymon.model.Search;
 import com.szymon.service.RateMapperService;
 import com.szymon.service.RateService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
@@ -26,19 +24,16 @@ public class CurrencyController {
 
     private final RateMapperService rateMapperService;
 
-    private final LogCacheManager logCacheManager;
-
     private final RestTemplate restTemplate;
 
     private final RateService rateService;
 
     public CurrencyController(
             RateMapperService rateMapperService,
-            LogCacheManager logCacheManager,
-            RestTemplate restTemplate, RateService rateService
+            RestTemplate restTemplate,
+            RateService rateService
     ) {
         this.rateMapperService = rateMapperService;
-        this.logCacheManager = logCacheManager;
         this.restTemplate = restTemplate;
         this.rateService = rateService;
     }
@@ -47,38 +42,34 @@ public class CurrencyController {
     public List<String> getAllAvailableCurrencies() {
         List<Rate> rates = rateMapperService.mapJsonFromTableCToRates(getCurrenciesRate());
 
-        logCacheManager.add(new Log("Response OK"));
-
         return rates.stream()
                 .map(Rate::getCode)
                 .collect(Collectors.toList());
     }
 
-    @GetMapping("/currencies/exchange")
-    public Money getExchangeValue(
-            @RequestParam("amount") int amount,
-            @RequestParam("from") String from,
-            @RequestParam("to") String to
-    ) {
+    @PostMapping("/currencies/exchanges")
+    public Exchange createExchangedValue(@RequestBody Exchange exchange) {
 
-        Rate rateFrom = this.rateMapperService.mapJsonFromSpecificCurrencyToRate(getCurrencyRate(from));
+        Rate rateFrom = this.rateMapperService.mapJsonFromSpecificCurrencyToRate(getCurrencyRate(exchange.getFrom()));
 
-        Rate rateTo = this.rateMapperService.mapJsonFromSpecificCurrencyToRate(getCurrencyRate(to));
+        Rate rateTo = this.rateMapperService.mapJsonFromSpecificCurrencyToRate(getCurrencyRate(exchange.getTo()));
 
         logger.info("Rate From: " + rateFrom);
         logger.info("Rate To: " + rateTo);
 
-        return rateService.exchangeCurrency(rateFrom, rateTo, amount);
+        return rateService.exchangeCurrency(rateFrom, rateTo, exchange.getAmount());
     }
 
-    @GetMapping("/currencies/rates")
-    public List<Rate> getRatesForSpecificCurrencies(@RequestBody List<String> codes) {
+    @PostMapping("/currencies/searches")
+    public Search createSearchRatesForSpecificCurrencies(@RequestBody Search search) {
 
         List<Rate> rates = rateMapperService.mapJsonFromTableCToRates(getCurrenciesRate());
 
-        return rates.stream()
-                .filter(rate -> codes.contains(rate.getCode()))
-                .collect(Collectors.toList());
+        search.setRates(rates.stream()
+                .filter(rate -> search.getCodes().contains(rate.getCode()))
+                .collect(Collectors.toList()));
+
+        return search;
     }
 
     private String getCurrencyRate(String currencyCode) {
