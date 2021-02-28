@@ -18,4 +18,8 @@ public class LogService {
     public void saveAllLogs(List<Log> logs) {
         logRepository.saveAll(logs);
     }
+
+    public List<Log> getAllLogs() {
+        return logRepository.findAll();
+    }
 }
